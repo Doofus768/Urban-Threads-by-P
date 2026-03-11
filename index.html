@@ -537,7 +537,7 @@ footer{background:#060606;border-top:1px solid rgba(201,168,76,0.12);padding:60p
     <div class="settings-card">
       <h4>Find Us</h4>
       <p style="font-size:0.82rem;color:rgba(250,248,245,0.45);line-height:2;font-weight:300;">
-        📧 <span style="color:var(--gold);" id="disp-email">hello@urbanthreadsByP.co.za</span><br>
+        📧 <span style="color:var(--gold);" id="disp-email"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="b9d1dcd5d5d6f9cccbdbd8d7cdd1cbdcd8ddcafbc0e997dad697c3d8">[email&#160;protected]</a></span><br>
         📱 <span style="color:var(--gold);" id="disp-phone">+27 XX XXX XXXX</span><br>
         📍 <span style="color:var(--gold);">Johannesburg, Gauteng, South Africa</span><br>
         🕐 <span style="color:var(--gold);">Mon–Sat: 8am–6pm</span>
@@ -674,7 +674,7 @@ footer{background:#060606;border-top:1px solid rgba(201,168,76,0.12);padding:60p
             <div class="summary-row"><span class="summary-label">Branch Code</span><span class="summary-val" id="eft-branch">—</span></div>
             <div class="summary-row"><span class="summary-label">Reference</span><span class="summary-val" id="eftRef">UTP-ORDER</span></div>
           </div>
-          <p style="font-size:0.75rem;color:rgba(250,248,245,0.35);line-height:1.7;">Email POP to <span style="color:var(--gold);" id="eft-email">hello@urbanthreadsByP.co.za</span></p>
+          <p style="font-size:0.75rem;color:rgba(250,248,245,0.35);line-height:1.7;">Email POP to <span style="color:var(--gold);" id="eft-email"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="452d2029292a05303727242b312d3720242136073c156b262a6b3f24">[email&#160;protected]</a></span></p>
         </div>
         <div id="yocoFields" style="display:none;text-align:center;padding:20px 0;">
           <div style="background:var(--black-card);border:1px solid rgba(201,168,76,0.15);padding:32px;display:inline-block;">
@@ -741,38 +741,95 @@ footer{background:#060606;border-top:1px solid rgba(201,168,76,0.12);padding:60p
 <!-- TOAST -->
 <div class="toast" id="toast"><span class="t-icon">✦</span><span id="toastMsg"></span></div>
 
-<script>
-// ═══════════════════════════════════════════════════
-// PERSISTENT STORAGE — saves to server, not browser
-// ═══════════════════════════════════════════════════
-const STORE_KEY = 'utp_store_v1';
-const ORDERS_KEY = 'utp_orders_v1';
-const SETTINGS_KEY = 'utp_settings_v1';
-const PWD_KEY = 'utp_pwd_v1';
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+// ═══════════════════════════════════════════════════════════
+// DUAL STORAGE: localStorage (instant) + JSONBin.io (cloud)
+//
+// HOW TO ENABLE CLOUD SYNC (free, 2 minutes):
+//   1. Go to https://jsonbin.io — create a free account
+//   2. Click "Snippets" → "Create Bin", paste {} and save
+//   3. Copy the Bin ID from the URL bar
+//   4. Go to Account → API Keys, copy your Master Key
+//   5. Paste both values below ↓
+//
+// WITHOUT these values the site still works perfectly using
+// localStorage — products, orders and settings save in the
+// browser and persist across sessions on the same device.
+// ═══════════════════════════════════════════════════════════
+const JSONBIN_BIN_ID  = '69b1ae46b7ec241ddc5e200a';
+const JSONBIN_API_KEY = '$2a$10$s83BAlQmutD6GF81Ctnj9uQEhhsT8/ZmypbsgAe6x5.9yv4VNsAxe';
+const JSONBIN_URL     = 'https://api.jsonbin.io/v3/b/' + JSONBIN_BIN_ID;
+const LS_KEY = 'utp_data_v2';
 
-async function dbGet(key) {
+const cloudReady = JSONBIN_BIN_ID !== 'PASTE_YOUR_BIN_ID_HERE' && JSONBIN_API_KEY !== 'PASTE_YOUR_API_KEY_HERE';
+
+// ── localStorage helpers ──
+function lsGet() {
+  try { var d = localStorage.getItem(LS_KEY); return d ? JSON.parse(d) : null; } catch(e) { return null; }
+}
+function lsSet(data) {
+  try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch(e) {}
+}
+
+// ── Cloud helpers ──
+async function cloudGet() {
+  if (!cloudReady) return null;
   try {
-    const r = await window.storage.get(key, true); // shared=true → same data for everyone
-    return r ? JSON.parse(r.value) : null;
+    var r = await fetch(JSONBIN_URL + '/latest', {
+      headers: { 'X-Master-Key': JSONBIN_API_KEY, 'X-Bin-Meta': 'false' }
+    });
+    return r.ok ? await r.json() : null;
   } catch(e) { return null; }
 }
-async function dbSet(key, val) {
-  try { await window.storage.set(key, JSON.stringify(val), true); } catch(e) {}
+async function cloudSet(data) {
+  if (!cloudReady) return;
+  try {
+    await fetch(JSONBIN_URL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_API_KEY },
+      body: JSON.stringify(data)
+    });
+  } catch(e) {}
 }
 
-// ─── STATE ───
-let products = [];
-let orders = [];
-let settings = { std: 60, exp: 120, email: 'hello@urbanthreadsByP.co.za', phone: '+27 XX XXX XXXX', bank: 'FNB', accname: 'Urban Threads By P', accnum: '62XXXXXXXXXX', branch: '250655' };
-let adminPwd = 'urbanp2025';
-let cart = [];
-let selectedDelivery = { method: 'standard', cost: 60 };
-let selectedPay = 'card';
-let currentStep = 1;
-let editingId = null;
-let currentFilter = 'all';
+// ── Master store — ONE object for everything ──
+var store = {
+  products: [],
+  orders: [],
+  settings: {
+    std: 60, exp: 120,
+    email: 'hello@urbanthreadsByP.co.za',
+    phone: '+27 XX XXX XXXX',
+    bank: 'FNB', accname: 'Urban Threads By P',
+    accnum: '62XXXXXXXXXX', branch: '250655'
+  },
+  pwd: 'urbanp2025'
+};
 
-const DEFAULT_PRODUCTS = [
+function mergeStore(data) {
+  if (!data) return;
+  if (data.products && data.products.length) store.products = data.products;
+  if (data.orders) store.orders = data.orders;
+  if (data.settings) Object.assign(store.settings, data.settings);
+  if (data.pwd) store.pwd = data.pwd;
+}
+
+async function dbLoad() {
+  var local = lsGet();
+  if (local) mergeStore(local);          // instant — works offline
+  if (cloudReady) {
+    var cloud = await cloudGet();
+    if (cloud && cloud.products) { mergeStore(cloud); lsSet(store); }
+  }
+}
+
+function dbSave() {
+  lsSet(store);       // always save locally — instant
+  cloudSet(store);    // background cloud save
+}
+
+// ── Default products (used on first load only) ──
+var DEFAULT_PRODUCTS = [
   {id:1,name:"Satin Slip Dress",category:"women",price:280,original:650,badge:"sale",emoji:"👗",desc:"Elegant satin midi dress, size 10. Minor factory imperfection on inner seam.",sizes:["XS","S","M","L"],img:""},
   {id:2,name:"Gold Jordan 1 Mid",category:"shoes",price:950,original:1800,badge:"hot",emoji:"👟",desc:"Black and gold Air Jordan 1 Mid. Pre-loved, excellent condition.",sizes:["5","6","7","8","9"],img:""},
   {id:3,name:"Men's Linen Blazer",category:"men",price:420,original:900,badge:"new",emoji:"🧥",desc:"Cream linen blazer, slim fit. Factory exclusive with slight fabric variation.",sizes:["S","M","L","XL"],img:""},
@@ -784,181 +841,186 @@ const DEFAULT_PRODUCTS = [
   {id:9,name:"Floral Maxi Skirt",category:"women",price:195,original:420,badge:"hot",emoji:"🌸",desc:"Bold floral maxi skirt in earth tones. Factory exclusive, size 12.",sizes:["S","M","L","XL"],img:""},
   {id:10,name:"Kids Party Dress",category:"kids",price:140,original:320,badge:"sale",emoji:"👗",desc:"Sparkly tulle party dress. Pre-loved, age 5-6. Worn once.",sizes:["3-4","5-6","7-8"],img:""},
   {id:11,name:"Leather Ankle Boots",category:"shoes",price:580,original:1200,badge:"hot",emoji:"👢",desc:"Genuine leather ankle boots in cognac. Pre-loved, size 5. Barely worn.",sizes:["3","4","5","6","7"],img:""},
-  {id:12,name:"Gold Layered Necklace",category:"accessories",price:95,original:220,badge:"new",emoji:"📿",desc:"18k gold-plated layered chain necklace set. Pre-loved, like new.",sizes:["One Size"],img:""},
+  {id:12,name:"Gold Layered Necklace",category:"accessories",price:95,original:220,badge:"new",emoji:"📿",desc:"18k gold-plated layered chain necklace set. Pre-loved, like new.",sizes:["One Size"],img:""}
 ];
 
-// ─── INIT ───
+// ── Runtime (non-persistent) state ──
+var cart = [];
+var selectedDelivery = { method: 'standard', cost: 60 };
+var selectedPay = 'card';
+var currentStep = 1;
+var editingId = null;
+var currentFilter = 'all';
+
+// ── INIT ──
 async function init() {
   document.getElementById('loadingOverlay').classList.remove('hidden');
-
-  // Load all data from persistent storage
-  const [storedProds, storedOrders, storedSettings, storedPwd] = await Promise.all([
-    dbGet(STORE_KEY), dbGet(ORDERS_KEY), dbGet(SETTINGS_KEY), dbGet(PWD_KEY)
-  ]);
-
-  products = storedProds || DEFAULT_PRODUCTS;
-  orders = storedOrders || [];
-  if (storedSettings) Object.assign(settings, storedSettings);
-  if (storedPwd) adminPwd = storedPwd;
-
-  // If first time, save defaults
-  if (!storedProds) await dbSet(STORE_KEY, products);
-
-  // Apply settings to UI
+  await dbLoad();
+  if (!store.products.length) {
+    store.products = DEFAULT_PRODUCTS;
+    dbSave();
+  }
   applySettings();
-
-  document.getElementById('statCount').textContent = products.length;
-  document.getElementById('syncBadge').style.display = 'inline-flex';
+  document.getElementById('statCount').textContent = store.products.length;
+  var sb = document.getElementById('syncBadge');
+  if (sb) sb.style.display = cloudReady ? 'inline-flex' : 'none';
   document.getElementById('loadingOverlay').classList.add('hidden');
   renderProducts('all');
 }
 
+// ── Apply settings to UI ──
 function applySettings() {
-  document.getElementById('stdLabel').textContent = `R${settings.std} · 3-5 days`;
-  document.getElementById('expLabel').textContent = `R${settings.exp} · 1-2 days`;
-  if(document.getElementById('disp-email')) document.getElementById('disp-email').textContent = settings.email || '';
-  if(document.getElementById('disp-phone')) document.getElementById('disp-phone').textContent = settings.phone || '';
-  // Populate settings form
-  ['email','phone','bank','accname','accnum','branch','std','exp'].forEach(k => {
-    const el = document.getElementById('set-'+k);
-    if(el) el.value = settings[k] || '';
+  var s = store.settings;
+  document.getElementById('stdLabel').textContent = 'R' + s.std + ' · 3-5 days';
+  document.getElementById('expLabel').textContent = 'R' + s.exp + ' · 1-2 days';
+  var de = document.getElementById('disp-email');
+  var dp = document.getElementById('disp-phone');
+  if (de) de.textContent = s.email || '';
+  if (dp) dp.textContent = s.phone || '';
+  ['email','phone','bank','accname','accnum','branch','std','exp'].forEach(function(k) {
+    var el = document.getElementById('set-' + k);
+    if (el) el.value = s[k] || '';
   });
 }
 
 async function saveSettings() {
-  settings.email = document.getElementById('set-email').value;
-  settings.phone = document.getElementById('set-phone').value;
-  settings.bank = document.getElementById('set-bank').value;
-  settings.accname = document.getElementById('set-accname').value;
-  settings.accnum = document.getElementById('set-accnum').value;
-  settings.branch = document.getElementById('set-branch').value;
-  settings.std = parseInt(document.getElementById('set-std').value) || 60;
-  settings.exp = parseInt(document.getElementById('set-exp').value) || 120;
-  await dbSet(SETTINGS_KEY, settings);
+  var s = store.settings;
+  s.email = document.getElementById('set-email').value;
+  s.phone = document.getElementById('set-phone').value;
+  s.bank = document.getElementById('set-bank').value;
+  s.accname = document.getElementById('set-accname').value;
+  s.accnum = document.getElementById('set-accnum').value;
+  s.branch = document.getElementById('set-branch').value;
+  s.std = parseInt(document.getElementById('set-std').value) || 60;
+  s.exp = parseInt(document.getElementById('set-exp').value) || 120;
+  dbSave();
   applySettings();
-  showToast('Settings saved and live! ✦');
+  showToast('Settings saved! ✦');
 }
 
 async function changePassword() {
-  const old = document.getElementById('set-oldpwd').value;
-  const nw = document.getElementById('set-newpwd').value;
-  const cf = document.getElementById('set-confirmpwd').value;
-  if(old !== adminPwd) { showToast('Current password is incorrect.'); return; }
-  if(nw.length < 6) { showToast('New password must be at least 6 characters.'); return; }
-  if(nw !== cf) { showToast('Passwords do not match.'); return; }
-  adminPwd = nw;
-  await dbSet(PWD_KEY, adminPwd);
+  var old = document.getElementById('set-oldpwd').value;
+  var nw  = document.getElementById('set-newpwd').value;
+  var cf  = document.getElementById('set-confirmpwd').value;
+  if (old !== store.pwd) { showToast('Current password is incorrect.'); return; }
+  if (nw.length < 6) { showToast('Password must be at least 6 characters.'); return; }
+  if (nw !== cf) { showToast('Passwords do not match.'); return; }
+  store.pwd = nw;
+  dbSave();
   showToast('Password updated! ✦');
-  ['set-oldpwd','set-newpwd','set-confirmpwd'].forEach(id => document.getElementById(id).value = '');
+  ['set-oldpwd','set-newpwd','set-confirmpwd'].forEach(function(id) { document.getElementById(id).value = ''; });
 }
 
-// ─── PAGE NAV ───
+// ── PAGE NAV ──
 function showPage(p) {
-  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
-  document.getElementById('page-'+p).classList.add('active');
-  const na = document.getElementById('nav-'+p);
-  if(na) na.classList.add('active');
-  window.scrollTo(0,0);
-  if(p === 'shop') renderProducts(currentFilter);
-  if(p === 'admin') { renderAdminProducts(); applySettings(); }
-  document.getElementById('statCount').textContent = products.length;
+  document.querySelectorAll('.page').forEach(function(el) { el.classList.remove('active'); });
+  document.querySelectorAll('.nav-links a').forEach(function(a) { a.classList.remove('active'); });
+  document.getElementById('page-' + p).classList.add('active');
+  var na = document.getElementById('nav-' + p);
+  if (na) na.classList.add('active');
+  window.scrollTo(0, 0);
+  if (p === 'shop') renderProducts(currentFilter);
+  if (p === 'admin') { renderAdminProducts(); applySettings(); }
+  document.getElementById('statCount').textContent = store.products.length;
 }
 
 function filterAndGo(cat) {
   currentFilter = cat;
   showPage('shop');
-  setTimeout(() => {
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    const map = {all:'All Items',women:'Women',men:'Men',kids:'Kids',shoes:'Shoes',accessories:'Accessories'};
-    document.querySelectorAll('.filter-btn').forEach(b => { if(b.textContent.trim() === map[cat]) b.classList.add('active'); });
+  setTimeout(function() {
+    document.querySelectorAll('.filter-btn').forEach(function(b) { b.classList.remove('active'); });
+    var labels = {all:'All Items',women:'Women',men:'Men',kids:'Kids',shoes:'Shoes',accessories:'Accessories'};
+    document.querySelectorAll('.filter-btn').forEach(function(b) { if (b.textContent.trim() === labels[cat]) b.classList.add('active'); });
     renderProducts(cat);
   }, 50);
 }
 
-// ─── SHOP ───
-function renderProducts(filter = 'all') {
+// ── SHOP ──
+function renderProducts(filter) {
+  filter = filter || 'all';
   currentFilter = filter;
-  const grid = document.getElementById('shopGrid');
-  const list = filter === 'all' ? products : products.filter(p => p.category === filter);
-  if(!list.length) {
+  var grid = document.getElementById('shopGrid');
+  var list = filter === 'all' ? store.products : store.products.filter(function(p) { return p.category === filter; });
+  if (!list.length) {
     grid.innerHTML = '<div style="text-align:center;padding:80px;color:rgba(250,248,245,0.3);grid-column:1/-1;font-size:0.9rem;">No items in this category yet. Check back soon! ✦</div>';
     return;
   }
-  grid.innerHTML = list.map(p => `
-    <div class="product-card">
-      <div class="product-img">
-        ${p.img ? `<img src="${p.img}" alt="${p.name}"/>` : `<div class="product-img-placeholder">${p.emoji}</div>`}
-        ${p.badge ? `<span class="product-badge badge-${p.badge}">${p.badge}</span>` : ''}
-      </div>
-      <div class="product-info">
-        <div class="product-category">${p.category}</div>
-        <div class="product-name">${p.name}</div>
-        <div class="product-desc">${p.desc}</div>
-        <select class="size-select" id="size-${p.id}">${(p.sizes||['One Size']).map(s=>`<option>${s}</option>`).join('')}</select>
-        <div class="product-footer">
-          <div class="product-price">${p.original?`<span class="original">R${p.original}</span>`:''}R${p.price}</div>
-          <button class="add-btn" onclick="addToCart(${p.id})">+ Add</button>
-        </div>
-      </div>
-    </div>`).join('');
+  grid.innerHTML = list.map(function(p) {
+    return '<div class="product-card">' +
+      '<div class="product-img">' +
+        (p.img ? '<img src="' + p.img + '" alt="' + p.name + '"/>' : '<div class="product-img-placeholder">' + p.emoji + '</div>') +
+        (p.badge ? '<span class="product-badge badge-' + p.badge + '">' + p.badge + '</span>' : '') +
+      '</div>' +
+      '<div class="product-info">' +
+        '<div class="product-category">' + p.category + '</div>' +
+        '<div class="product-name">' + p.name + '</div>' +
+        '<div class="product-desc">' + p.desc + '</div>' +
+        '<select class="size-select" id="size-' + p.id + '">' + (p.sizes || ['One Size']).map(function(s) { return '<option>' + s + '</option>'; }).join('') + '</select>' +
+        '<div class="product-footer">' +
+          '<div class="product-price">' + (p.original ? '<span class="original">R' + p.original + '</span>' : '') + 'R' + p.price + '</div>' +
+          '<button class="add-btn" onclick="addToCart(' + p.id + ')">+ Add</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
 }
 
 function filterProducts(cat, btn) {
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.filter-btn').forEach(function(b) { b.classList.remove('active'); });
   btn.classList.add('active');
   renderProducts(cat);
 }
 
-// ─── CART ───
+// ── CART ──
 function addToCart(id) {
-  const p = products.find(x => x.id === id);
-  const sEl = document.getElementById('size-'+id);
-  const size = sEl ? sEl.value : 'One Size';
-  const ex = cart.find(x => x.id === id && x.size === size);
-  if(ex) ex.qty++;
-  else cart.push({...p, size, qty:1});
+  var p = store.products.find(function(x) { return x.id === id; });
+  var sEl = document.getElementById('size-' + id);
+  var size = sEl ? sEl.value : 'One Size';
+  var ex = cart.find(function(x) { return x.id === id && x.size === size; });
+  if (ex) ex.qty++;
+  else cart.push(Object.assign({}, p, { size: size, qty: 1 }));
   updateCart();
   showToast(p.name + ' added to cart ✦');
 }
 
 function updateCart() {
-  const count = cart.reduce((a,b) => a+b.qty, 0);
+  var count = cart.reduce(function(a, b) { return a + b.qty; }, 0);
   document.getElementById('cartCount').textContent = count;
-  const total = cart.reduce((a,b) => a+(b.price*b.qty), 0);
+  var total = cart.reduce(function(a, b) { return a + b.price * b.qty; }, 0);
   document.getElementById('cartTotal').textContent = 'R' + total;
-  const el = document.getElementById('cartItems');
-  if(!cart.length) {
+  var el = document.getElementById('cartItems');
+  if (!cart.length) {
     el.innerHTML = '<div class="cart-empty"><span class="empty-icon">🛍️</span><p>Your cart is empty.<br>Add something beautiful.</p></div>';
     return;
   }
-  el.innerHTML = cart.map((item,i) => `
-    <div class="cart-item">
-      <div class="cart-item-img">${item.img ? `<img src="${item.img}" alt=""/>` : item.emoji}</div>
-      <div class="cart-item-info">
-        <div class="cart-item-name">${item.name}</div>
-        <div class="cart-item-meta">Size: ${item.size}</div>
-        <div class="cart-item-controls">
-          <div class="qty-controls">
-            <button class="qty-btn" onclick="changeQty(${i},-1)">−</button>
-            <span class="qty-num">${item.qty}</span>
-            <button class="qty-btn" onclick="changeQty(${i},1)">+</button>
-            <button class="remove-btn" onclick="removeItem(${i})">✕</button>
-          </div>
-          <span class="cart-item-price">R${item.price*item.qty}</span>
-        </div>
-      </div>
-    </div>`).join('');
+  el.innerHTML = cart.map(function(item, i) {
+    return '<div class="cart-item">' +
+      '<div class="cart-item-img">' + (item.img ? '<img src="' + item.img + '" alt=""/>' : item.emoji) + '</div>' +
+      '<div class="cart-item-info">' +
+        '<div class="cart-item-name">' + item.name + '</div>' +
+        '<div class="cart-item-meta">Size: ' + item.size + '</div>' +
+        '<div class="cart-item-controls">' +
+          '<div class="qty-controls">' +
+            '<button class="qty-btn" onclick="changeQty(' + i + ',-1)">−</button>' +
+            '<span class="qty-num">' + item.qty + '</span>' +
+            '<button class="qty-btn" onclick="changeQty(' + i + ',1)">+</button>' +
+            '<button class="remove-btn" onclick="removeItem(' + i + ')">✕</button>' +
+          '</div>' +
+          '<span class="cart-item-price">R' + item.price * item.qty + '</span>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
 }
 
-function changeQty(i,d) { cart[i].qty += d; if(cart[i].qty <= 0) cart.splice(i,1); updateCart(); }
-function removeItem(i) { cart.splice(i,1); updateCart(); }
+function changeQty(i, d) { cart[i].qty += d; if (cart[i].qty <= 0) cart.splice(i, 1); updateCart(); }
+function removeItem(i) { cart.splice(i, 1); updateCart(); }
 function toggleCart() { document.getElementById('cartSidebar').classList.toggle('open'); document.getElementById('cartOverlay').classList.toggle('open'); }
 function resetCart() { cart = []; updateCart(); }
 
-// ─── PAYMENT ───
+// ── PAYMENT ──
 function openPayment() {
-  if(!cart.length) { showToast('Your cart is empty!'); return; }
+  if (!cart.length) { showToast('Your cart is empty!'); return; }
   toggleCart();
   document.getElementById('paymentModal').classList.add('open');
   currentStep = 1; goToStep(1);
@@ -966,82 +1028,110 @@ function openPayment() {
 function closePayment() { document.getElementById('paymentModal').classList.remove('open'); }
 
 function goToStep(n) {
-  if(n > currentStep) {
-    if(currentStep === 1) { const fn=document.getElementById('firstName').value, em=document.getElementById('email').value; if(!fn||!em){showToast('Please enter your name and email.');return;} }
-    if(currentStep === 2) { const a=document.getElementById('address').value, c=document.getElementById('city').value; if(!a||!c){showToast('Please fill in your delivery address.');return;} }
+  if (n > currentStep) {
+    if (currentStep === 1) {
+      var fn = document.getElementById('firstName').value, em = document.getElementById('email').value;
+      if (!fn || !em) { showToast('Please enter your name and email.'); return; }
+    }
+    if (currentStep === 2) {
+      var a = document.getElementById('address').value, c = document.getElementById('city').value;
+      if (!a || !c) { showToast('Please fill in your delivery address.'); return; }
+    }
   }
-  for(let i=1;i<=5;i++) {
-    document.getElementById('panel'+i).classList.remove('active');
-    const t = document.getElementById('tab'+i);
-    if(t) { t.classList.remove('active','done'); if(i<n) t.classList.add('done'); if(i===n) t.classList.add('active'); }
+  for (var i = 1; i <= 5; i++) {
+    document.getElementById('panel' + i).classList.remove('active');
+    var t = document.getElementById('tab' + i);
+    if (t) { t.classList.remove('active','done'); if (i < n) t.classList.add('done'); if (i === n) t.classList.add('active'); }
   }
-  document.getElementById('panel'+n).classList.add('active');
+  document.getElementById('panel' + n).classList.add('active');
   currentStep = n;
-  if(n===4) buildSummary();
-  if(n===3) updateYoco();
+  if (n === 4) buildSummary();
+  if (n === 3) updateYoco();
 }
 
 function selectDelivery(el, m) {
-  document.querySelectorAll('#panel2 .pay-method').forEach(x => x.classList.remove('selected'));
+  document.querySelectorAll('#panel2 .pay-method').forEach(function(x) { x.classList.remove('selected'); });
   el.classList.add('selected');
-  const c = { standard: settings.std, express: settings.exp, collect: 0 };
-  selectedDelivery = { method: m, cost: c[m] };
+  var costs = { standard: store.settings.std, express: store.settings.exp, collect: 0 };
+  selectedDelivery = { method: m, cost: costs[m] };
 }
 
 function selectPaymentMethod(el, m) {
-  document.querySelectorAll('#panel3 .pay-method').forEach(x => x.classList.remove('selected'));
+  document.querySelectorAll('#panel3 .pay-method').forEach(function(x) { x.classList.remove('selected'); });
   el.classList.add('selected');
   selectedPay = m;
-  document.getElementById('cardFields').style.display = m==='card' ? 'block' : 'none';
-  document.getElementById('eftFields').style.display = m==='eft' ? 'block' : 'none';
-  document.getElementById('yocoFields').style.display = m==='yoco' ? 'block' : 'none';
-  if(m==='eft') {
-    document.getElementById('eft-bank').textContent = settings.bank || '—';
-    document.getElementById('eft-accname').textContent = settings.accname || 'Urban Threads By P';
-    document.getElementById('eft-accnum').textContent = settings.accnum || '—';
-    document.getElementById('eft-branch').textContent = settings.branch || '—';
-    document.getElementById('eft-email').textContent = settings.email || '';
-    document.getElementById('eftRef').textContent = 'UTP-'+Math.floor(Math.random()*900000+100000);
+  document.getElementById('cardFields').style.display  = m === 'card' ? 'block' : 'none';
+  document.getElementById('eftFields').style.display   = m === 'eft'  ? 'block' : 'none';
+  document.getElementById('yocoFields').style.display  = m === 'yoco' ? 'block' : 'none';
+  if (m === 'eft') {
+    var s = store.settings;
+    document.getElementById('eft-bank').textContent    = s.bank || '—';
+    document.getElementById('eft-accname').textContent = s.accname || 'Urban Threads By P';
+    document.getElementById('eft-accnum').textContent  = s.accnum || '—';
+    document.getElementById('eft-branch').textContent  = s.branch || '—';
+    document.getElementById('eft-email').textContent   = s.email || '';
+    document.getElementById('eftRef').textContent = 'UTP-' + Math.floor(Math.random() * 900000 + 100000);
   }
-  if(m==='yoco') updateYoco();
+  if (m === 'yoco') updateYoco();
 }
 
 function updateYoco() {
-  const t = cart.reduce((a,b) => a+(b.price*b.qty), 0) + selectedDelivery.cost;
-  document.getElementById('yocoAmount').textContent = 'Amount: R'+t;
+  var t = cart.reduce(function(a, b) { return a + b.price * b.qty; }, 0) + selectedDelivery.cost;
+  document.getElementById('yocoAmount').textContent = 'Amount: R' + t;
 }
 
 function buildSummary() {
-  const sub = cart.reduce((a,b) => a+(b.price*b.qty), 0), tot = sub + selectedDelivery.cost;
-  const fn=document.getElementById('firstName').value, ln=document.getElementById('lastName').value;
-  const addr=document.getElementById('address').value, city=document.getElementById('city').value, prov=document.getElementById('province').value;
-  document.getElementById('finalSummary').innerHTML = `
-    ${cart.map(it=>`<div class="summary-row"><span class="summary-label">${it.emoji} ${it.name} (${it.size}) ×${it.qty}</span><span class="summary-val">R${it.price*it.qty}</span></div>`).join('')}
-    <div class="summary-row"><span class="summary-label">Delivery (${selectedDelivery.method})</span><span class="summary-val">${selectedDelivery.cost===0?'Free':'R'+selectedDelivery.cost}</span></div>
-    <div class="summary-row summary-total"><span class="summary-label">Total</span><span class="summary-val">R${tot}</span></div>`;
-  document.getElementById('deliverySummary').innerHTML = `${fn} ${ln}<br>${addr}, ${city}, ${prov}<br>Payment via: <span style="color:var(--gold);text-transform:capitalize;">${selectedPay}</span>`;
+  var sub = cart.reduce(function(a, b) { return a + b.price * b.qty; }, 0);
+  var tot = sub + selectedDelivery.cost;
+  var fn   = document.getElementById('firstName').value;
+  var ln   = document.getElementById('lastName').value;
+  var addr = document.getElementById('address').value;
+  var city = document.getElementById('city').value;
+  var prov = document.getElementById('province').value;
+  document.getElementById('finalSummary').innerHTML =
+    cart.map(function(it) {
+      return '<div class="summary-row"><span class="summary-label">' + it.emoji + ' ' + it.name + ' (' + it.size + ') ×' + it.qty + '</span><span class="summary-val">R' + it.price * it.qty + '</span></div>';
+    }).join('') +
+    '<div class="summary-row"><span class="summary-label">Delivery (' + selectedDelivery.method + ')</span><span class="summary-val">' + (selectedDelivery.cost === 0 ? 'Free' : 'R' + selectedDelivery.cost) + '</span></div>' +
+    '<div class="summary-row summary-total"><span class="summary-label">Total</span><span class="summary-val">R' + tot + '</span></div>';
+  document.getElementById('deliverySummary').innerHTML =
+    fn + ' ' + ln + '<br>' + addr + ', ' + city + ', ' + prov +
+    '<br>Payment via: <span style="color:var(--gold);text-transform:capitalize;">' + selectedPay + '</span>';
 }
 
 async function placeOrder() {
-  const btn = document.getElementById('placeOrderBtn');
+  var btn = document.getElementById('placeOrderBtn');
   btn.textContent = 'Processing...'; btn.disabled = true;
-  const ref = 'UTP-'+Math.floor(Math.random()*900000+100000);
-  const fn = document.getElementById('firstName').value, ln = document.getElementById('lastName').value;
-  const sub = cart.reduce((a,b) => a+(b.price*b.qty), 0);
-  const order = { ref, name: fn+' '+ln, email: document.getElementById('email').value, total: sub+selectedDelivery.cost, items: cart.length, itemList: cart.map(c=>c.name+' ('+c.size+') x'+c.qty).join(', '), delivery: selectedDelivery.method, payment: selectedPay, date: new Date().toLocaleDateString('en-ZA'), status: 'Confirmed' };
-  orders.unshift(order);
-  await dbSet(ORDERS_KEY, orders);
-  document.getElementById('orderRef').textContent = 'Order #'+ref;
-  goToStep(5); btn.textContent = 'Place Order ✓'; btn.disabled = false;
+  var ref = 'UTP-' + Math.floor(Math.random() * 900000 + 100000);
+  var fn  = document.getElementById('firstName').value;
+  var ln  = document.getElementById('lastName').value;
+  var sub = cart.reduce(function(a, b) { return a + b.price * b.qty; }, 0);
+  var order = {
+    ref: ref,
+    name: fn + ' ' + ln,
+    email: document.getElementById('email').value,
+    total: sub + selectedDelivery.cost,
+    items: cart.length,
+    itemList: cart.map(function(c) { return c.name + ' (' + c.size + ') x' + c.qty; }).join(', '),
+    delivery: selectedDelivery.method,
+    payment: selectedPay,
+    date: new Date().toLocaleDateString('en-ZA'),
+    status: 'Confirmed'
+  };
+  store.orders.unshift(order);
+  dbSave();
+  document.getElementById('orderRef').textContent = 'Order #' + ref;
+  goToStep(5);
+  btn.textContent = 'Place Order ✓'; btn.disabled = false;
 }
 
-function formatCard(el) { let v=el.value.replace(/\D/g,'').substring(0,16); el.value=v.replace(/(\d{4})/g,'$1 ').trim(); }
-function formatExpiry(el) { let v=el.value.replace(/\D/g,''); if(v.length>=2) v=v.substring(0,2)+' / '+v.substring(2); el.value=v; }
+function formatCard(el) { var v = el.value.replace(/\D/g,'').substring(0,16); el.value = v.replace(/(\d{4})/g,'$1 ').trim(); }
+function formatExpiry(el) { var v = el.value.replace(/\D/g,''); if (v.length >= 2) v = v.substring(0,2) + ' / ' + v.substring(2); el.value = v; }
 
-// ─── ADMIN ───
+// ── ADMIN ──
 function checkLogin() {
-  const p = document.getElementById('adminPwd').value;
-  if(p === adminPwd) {
+  var p = document.getElementById('adminPwd').value;
+  if (p === store.pwd) {
     document.getElementById('adminLoginOverlay').classList.remove('open');
     document.getElementById('adminPwd').value = '';
     document.getElementById('loginError').style.display = 'none';
@@ -1052,56 +1142,70 @@ function checkLogin() {
 }
 
 function switchAdminTab(id, btn) {
-  document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.admin-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.admin-tab').forEach(function(t) { t.classList.remove('active'); });
+  document.querySelectorAll('.admin-panel').forEach(function(p) { p.classList.remove('active'); });
   btn.classList.add('active');
-  document.getElementById('atab-'+id).classList.add('active');
-  if(id === 'orders') renderOrders();
+  document.getElementById('atab-' + id).classList.add('active');
+  if (id === 'orders') renderOrders();
 }
 
 function renderAdminProducts() {
-  const list = document.getElementById('adminProdList');
-  if(!products.length) { list.innerHTML = '<p style="color:rgba(250,248,245,0.3);padding:40px;text-align:center;">No products yet. Click "Add New Product" to get started.</p>'; return; }
-  list.innerHTML = products.map(p => `
-    <div class="prod-row">
-      <div class="prod-row-img">${p.img ? `<img src="${p.img}" alt="${p.name}"/>` : p.emoji}</div>
-      <div class="prod-row-info"><div class="pname">${p.name}</div><div class="pmeta">${p.desc.substring(0,70)}${p.desc.length>70?'...':''}</div></div>
-      <div class="prod-row-price">R${p.price}${p.original?`<span style="font-size:0.8rem;color:rgba(250,248,245,0.3);text-decoration:line-through;font-family:'Jost';margin-left:8px;">R${p.original}</span>`:''}</div>
-      <div class="prod-row-cat">${p.category}</div>
-      <div class="prod-row-actions"><button class="btn-edit" onclick="openProductForm(${p.id})">Edit</button><button class="btn-del" onclick="deleteProduct(${p.id})">Delete</button></div>
-    </div>`).join('');
+  var list = document.getElementById('adminProdList');
+  if (!store.products.length) {
+    list.innerHTML = '<p style="color:rgba(250,248,245,0.3);padding:40px;text-align:center;">No products yet. Click "Add New Product" to get started.</p>';
+    return;
+  }
+  list.innerHTML = store.products.map(function(p) {
+    return '<div class="prod-row">' +
+      '<div class="prod-row-img">' + (p.img ? '<img src="' + p.img + '" alt="' + p.name + '"/>' : p.emoji) + '</div>' +
+      '<div class="prod-row-info">' +
+        '<div class="pname">' + p.name + '</div>' +
+        '<div class="pmeta">' + p.desc.substring(0, 70) + (p.desc.length > 70 ? '...' : '') + '</div>' +
+      '</div>' +
+      '<div class="prod-row-price">R' + p.price + (p.original ? '<span style="font-size:0.8rem;color:rgba(250,248,245,0.3);text-decoration:line-through;margin-left:8px;">R' + p.original + '</span>' : '') + '</div>' +
+      '<div class="prod-row-cat">' + p.category + '</div>' +
+      '<div class="prod-row-actions">' +
+        '<button class="btn-edit" onclick="openProductForm(' + p.id + ')">Edit</button>' +
+        '<button class="btn-del" onclick="deleteProduct(' + p.id + ')">Delete</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
 }
 
 function renderOrders() {
-  const list = document.getElementById('ordersList');
-  if(!orders.length) { list.innerHTML = '<p style="color:rgba(250,248,245,0.3);padding:40px;text-align:center;">No orders yet. They will appear here once customers start placing orders.</p>'; return; }
-  list.innerHTML = orders.map(o => `
-    <div class="prod-row" style="grid-template-columns:1fr 1fr 1fr auto auto;">
-      <div class="prod-row-info"><div class="pname">${o.ref}</div><div class="pmeta">${o.name} · ${o.items} item${o.items!==1?'s':''}</div></div>
-      <div class="prod-row-info"><div class="pmeta" style="font-size:0.78rem;color:rgba(250,248,245,0.45);">${o.itemList||''}</div></div>
-      <div class="prod-row-info"><div class="pmeta">${o.date} · via ${o.payment||'—'}</div></div>
-      <div class="prod-row-price">R${o.total}</div>
-      <div class="prod-row-cat" style="border-color:rgba(76,175,80,0.3);color:#4CAF50;">${o.status}</div>
-    </div>`).join('');
+  var list = document.getElementById('ordersList');
+  if (!store.orders.length) {
+    list.innerHTML = '<p style="color:rgba(250,248,245,0.3);padding:40px;text-align:center;">No orders yet. They will appear here when customers order.</p>';
+    return;
+  }
+  list.innerHTML = store.orders.map(function(o) {
+    return '<div class="prod-row" style="grid-template-columns:1fr 1fr 1fr auto auto;">' +
+      '<div class="prod-row-info"><div class="pname">' + o.ref + '</div><div class="pmeta">' + o.name + ' · ' + o.items + ' item' + (o.items !== 1 ? 's' : '') + '</div></div>' +
+      '<div class="prod-row-info"><div class="pmeta" style="font-size:0.78rem;color:rgba(250,248,245,0.45);">' + (o.itemList || '') + '</div></div>' +
+      '<div class="prod-row-info"><div class="pmeta">' + o.date + ' · via ' + (o.payment || '—') + '</div></div>' +
+      '<div class="prod-row-price">R' + o.total + '</div>' +
+      '<div class="prod-row-cat" style="border-color:rgba(76,175,80,0.3);color:#4CAF50;">' + o.status + '</div>' +
+    '</div>';
+  }).join('');
 }
 
 function openProductForm(id) {
   editingId = id || null;
   document.getElementById('formTitle').innerHTML = id ? 'Edit <em>Product</em>' : 'Add <em>New Product</em>';
-  if(id) {
-    const p = products.find(x => x.id === id);
-    document.getElementById('pf-name').value = p.name;
-    document.getElementById('pf-cat').value = p.category;
-    document.getElementById('pf-badge').value = p.badge || '';
-    document.getElementById('pf-price').value = p.price;
+  if (id) {
+    var p = store.products.find(function(x) { return x.id === id; });
+    document.getElementById('pf-name').value    = p.name;
+    document.getElementById('pf-cat').value     = p.category;
+    document.getElementById('pf-badge').value   = p.badge || '';
+    document.getElementById('pf-price').value   = p.price;
     document.getElementById('pf-original').value = p.original || '';
-    document.getElementById('pf-desc').value = p.desc;
-    document.getElementById('pf-sizes').value = (p.sizes||[]).join(', ');
-    document.getElementById('pf-emoji').value = p.emoji;
-    document.getElementById('pfImgPreview').innerHTML = p.img ? `<img src="${p.img}" alt=""/>` : '<span class="placeholder-text">No photo yet</span>';
+    document.getElementById('pf-desc').value    = p.desc;
+    document.getElementById('pf-sizes').value   = (p.sizes || []).join(', ');
+    document.getElementById('pf-emoji').value   = p.emoji;
+    document.getElementById('pfImgPreview').innerHTML = p.img ? '<img src="' + p.img + '" alt=""/>' : '<span class="placeholder-text">No photo yet</span>';
   } else {
-    ['pf-name','pf-price','pf-original','pf-desc','pf-sizes'].forEach(id => document.getElementById(id).value = '');
-    document.getElementById('pf-cat').value = 'women';
+    ['pf-name','pf-price','pf-original','pf-desc','pf-sizes'].forEach(function(id) { document.getElementById(id).value = ''; });
+    document.getElementById('pf-cat').value   = 'women';
     document.getElementById('pf-badge').value = '';
     document.getElementById('pf-emoji').value = '👗';
     document.getElementById('pfImgPreview').innerHTML = '<span class="placeholder-text">No photo yet — upload one below</span>';
@@ -1113,69 +1217,74 @@ function openProductForm(id) {
 function closeProductForm() { document.getElementById('productFormOverlay').classList.remove('open'); }
 
 function previewImg(input) {
-  if(!input.files || !input.files[0]) return;
-  const reader = new FileReader();
-  reader.onload = e => { document.getElementById('pfImgPreview').innerHTML = `<img src="${e.target.result}" alt="preview"/>`; };
+  if (!input.files || !input.files[0]) return;
+  var reader = new FileReader();
+  reader.onload = function(e) { document.getElementById('pfImgPreview').innerHTML = '<img src="' + e.target.result + '" alt="preview"/>'; };
   reader.readAsDataURL(input.files[0]);
 }
 
 async function saveProduct() {
-  const name = document.getElementById('pf-name').value.trim();
-  const price = parseFloat(document.getElementById('pf-price').value);
-  if(!name) { showToast('Please enter a product name.'); return; }
-  if(!price || price <= 0) { showToast('Please enter a valid price.'); return; }
-  const imgEl = document.getElementById('pfImgPreview').querySelector('img');
-  const btn = document.getElementById('saveProductBtn');
+  var name  = document.getElementById('pf-name').value.trim();
+  var price = parseFloat(document.getElementById('pf-price').value);
+  if (!name)  { showToast('Please enter a product name.'); return; }
+  if (!price || price <= 0) { showToast('Please enter a valid price.'); return; }
+  var imgEl = document.getElementById('pfImgPreview').querySelector('img');
+  var btn   = document.getElementById('saveProductBtn');
   btn.textContent = 'Saving...'; btn.disabled = true;
-  const prod = {
-    id: editingId || Date.now(),
-    name,
+  var prod = {
+    id:       editingId || Date.now(),
+    name:     name,
     category: document.getElementById('pf-cat').value,
-    badge: document.getElementById('pf-badge').value || '',
-    price,
+    badge:    document.getElementById('pf-badge').value || '',
+    price:    price,
     original: parseFloat(document.getElementById('pf-original').value) || 0,
-    desc: document.getElementById('pf-desc').value.trim(),
-    sizes: document.getElementById('pf-sizes').value.split(',').map(s=>s.trim()).filter(Boolean) || ['One Size'],
-    emoji: document.getElementById('pf-emoji').value || '👗',
-    img: imgEl ? imgEl.src : ''
+    desc:     document.getElementById('pf-desc').value.trim(),
+    sizes:    document.getElementById('pf-sizes').value.split(',').map(function(s) { return s.trim(); }).filter(Boolean) || ['One Size'],
+    emoji:    document.getElementById('pf-emoji').value || '👗',
+    img:      imgEl ? imgEl.src : ''
   };
-  if(!prod.original) delete prod.original;
-  if(!prod.badge) delete prod.badge;
-  if(editingId) { const i = products.findIndex(x => x.id === editingId); products[i] = prod; }
-  else products.push(prod);
-  await dbSet(STORE_KEY, products);
+  if (!prod.original) delete prod.original;
+  if (!prod.badge) delete prod.badge;
+  if (editingId) {
+    var idx = store.products.findIndex(function(x) { return x.id === editingId; });
+    store.products[idx] = prod;
+  } else {
+    store.products.push(prod);
+  }
+  dbSave();
   btn.textContent = 'Save Product ✓'; btn.disabled = false;
   closeProductForm();
   renderAdminProducts();
-  document.getElementById('statCount').textContent = products.length;
-  showToast((editingId ? 'Product updated' : 'Product added') + ' and live! ✦');
+  document.getElementById('statCount').textContent = store.products.length;
+  showToast((editingId ? 'Product updated' : 'Product added') + ' and saved! ✦');
 }
 
 async function deleteProduct(id) {
-  if(!confirm('Delete this product? This cannot be undone.')) return;
-  products = products.filter(x => x.id !== id);
-  await dbSet(STORE_KEY, products);
+  if (!confirm('Delete this product? This cannot be undone.')) return;
+  store.products = store.products.filter(function(x) { return x.id !== id; });
+  dbSave();
   renderAdminProducts();
-  document.getElementById('statCount').textContent = products.length;
+  document.getElementById('statCount').textContent = store.products.length;
   showToast('Product deleted.');
 }
 
 function sendContact() {
-  const n=document.getElementById('contact-name').value, e=document.getElementById('contact-email').value;
-  if(!n||!e){showToast('Please fill in your name and email.');return;}
+  var n = document.getElementById('contact-name').value;
+  var e = document.getElementById('contact-email').value;
+  if (!n || !e) { showToast('Please fill in your name and email.'); return; }
   showToast('Message sent! We will be in touch soon. ✦');
-  ['contact-name','contact-email','contact-msg'].forEach(id=>document.getElementById(id).value='');
+  ['contact-name','contact-email','contact-msg'].forEach(function(id) { document.getElementById(id).value = ''; });
 }
 
-// ─── TOAST ───
+// ── TOAST ──
 function showToast(msg) {
-  const t = document.getElementById('toast');
+  var t = document.getElementById('toast');
   document.getElementById('toastMsg').textContent = msg;
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3200);
+  setTimeout(function() { t.classList.remove('show'); }, 3200);
 }
 
-// ─── START ───
+// ── START ──
 init();
 </script>
 </body>
