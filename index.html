@@ -640,16 +640,21 @@ footer{background:#060606;border-top:1px solid rgba(201,168,76,0.12);padding:60p
         <div class="modal-nav"><button class="btn-next" onclick="goToStep(2)">Continue to Delivery →</button></div>
       </div>
       <div class="step-panel" id="panel2">
-        <div class="section-title">Delivery Address</div>
-        <div class="form-row full"><div class="form-group"><label>Street Address</label><input type="text" id="address" placeholder="123 Main Street"/></div></div>
-        <div class="form-row"><div class="form-group"><label>City</label><input type="text" id="city" placeholder="Johannesburg"/></div><div class="form-group"><label>Province</label><select id="province"><option value="">Select Province</option><option>Gauteng</option><option>Western Cape</option><option>KwaZulu-Natal</option><option>Eastern Cape</option><option>Limpopo</option><option>Mpumalanga</option><option>North West</option><option>Free State</option><option>Northern Cape</option></select></div></div>
-        <div class="form-row"><div class="form-group"><label>Postal Code</label><input type="text" id="postal" placeholder="2000"/></div><div class="form-group"><label>Country</label><select id="country"><option>South Africa</option><option>Zimbabwe</option><option>Botswana</option><option>Namibia</option><option>Mozambique</option><option>Lesotho</option><option>Eswatini</option></select></div></div>
-        <div class="divider"></div>
         <div class="section-title">Delivery Method</div>
         <div class="pay-methods-grid">
           <div class="pay-method selected" onclick="selectDelivery(this,'standard')"><span class="pm-icon">🚚</span><div class="pm-label">Standard<br><span style="color:var(--gold);font-size:0.7rem;" id="stdLabel">R60 · 3-5 days</span></div></div>
           <div class="pay-method" onclick="selectDelivery(this,'express')"><span class="pm-icon">⚡</span><div class="pm-label">Express<br><span style="color:var(--gold);font-size:0.7rem;" id="expLabel">R120 · 1-2 days</span></div></div>
           <div class="pay-method" onclick="selectDelivery(this,'collect')"><span class="pm-icon">📦</span><div class="pm-label">Collection<br><span style="color:var(--gold);font-size:0.7rem;">Free · Collect</span></div></div>
+        </div>
+        <div id="addressFields">
+          <div class="divider"></div>
+          <div class="section-title">Delivery Address</div>
+          <div class="form-row full"><div class="form-group"><label>Street Address</label><input type="text" id="address" placeholder="123 Main Street"/></div></div>
+          <div class="form-row"><div class="form-group"><label>City</label><input type="text" id="city" placeholder="Johannesburg"/></div><div class="form-group"><label>Province</label><select id="province"><option value="">Select Province</option><option>Gauteng</option><option>Western Cape</option><option>KwaZulu-Natal</option><option>Eastern Cape</option><option>Limpopo</option><option>Mpumalanga</option><option>North West</option><option>Free State</option><option>Northern Cape</option></select></div></div>
+          <div class="form-row"><div class="form-group"><label>Postal Code</label><input type="text" id="postal" placeholder="2000"/></div><div class="form-group"><label>Country</label><select id="country"><option>South Africa</option><option>Zimbabwe</option><option>Botswana</option><option>Namibia</option><option>Mozambique</option><option>Lesotho</option><option>Eswatini</option></select></div></div>
+        </div>
+        <div id="collectNote" style="display:none;background:var(--black-card);border:1px solid rgba(201,168,76,0.2);padding:20px 24px;margin-top:16px;">
+          <p style="font-size:0.85rem;color:rgba(250,248,245,0.6);line-height:1.8;">📦 <strong style="color:var(--gold);">Collection selected.</strong> No delivery address needed. We will contact you with collection details once your order is confirmed.</p>
         </div>
         <div class="modal-nav"><button class="btn-back" onclick="goToStep(1)">← Back</button><button class="btn-next" onclick="goToStep(3)">Continue to Payment →</button></div>
       </div>
@@ -1033,7 +1038,7 @@ function goToStep(n) {
       var fn = document.getElementById('firstName').value, em = document.getElementById('email').value;
       if (!fn || !em) { showToast('Please enter your name and email.'); return; }
     }
-    if (currentStep === 2) {
+    if (currentStep === 2 && selectedDelivery.method !== 'collect') {
       var a = document.getElementById('address').value, c = document.getElementById('city').value;
       if (!a || !c) { showToast('Please fill in your delivery address.'); return; }
     }
@@ -1054,6 +1059,23 @@ function selectDelivery(el, m) {
   el.classList.add('selected');
   var costs = { standard: store.settings.std, express: store.settings.exp, collect: 0 };
   selectedDelivery = { method: m, cost: costs[m] };
+  // Show/hide address fields based on method
+  var addrFields = document.getElementById('addressFields');
+  var collectNote = document.getElementById('collectNote');
+  if (m === 'collect') {
+    addrFields.style.display = 'none';
+    collectNote.style.display = 'block';
+    // Clear address fields so validation passes
+    ['address','city','postal'].forEach(function(id) { document.getElementById(id).value = 'N/A - Collection'; });
+    document.getElementById('province').value = '';
+  } else {
+    addrFields.style.display = 'block';
+    collectNote.style.display = 'none';
+    // Clear the placeholder values so user can fill in real address
+    ['address','city','postal'].forEach(function(id) {
+      if (document.getElementById(id).value === 'N/A - Collection') document.getElementById(id).value = '';
+    });
+  }
 }
 
 function selectPaymentMethod(el, m) {
@@ -1094,8 +1116,11 @@ function buildSummary() {
     }).join('') +
     '<div class="summary-row"><span class="summary-label">Delivery (' + selectedDelivery.method + ')</span><span class="summary-val">' + (selectedDelivery.cost === 0 ? 'Free' : 'R' + selectedDelivery.cost) + '</span></div>' +
     '<div class="summary-row summary-total"><span class="summary-label">Total</span><span class="summary-val">R' + tot + '</span></div>';
+  var addrLine = selectedDelivery.method === 'collect'
+    ? '<span style="color:var(--gold);">📦 Collection — we will be in touch with pickup details.</span>'
+    : addr + ', ' + city + ', ' + prov;
   document.getElementById('deliverySummary').innerHTML =
-    fn + ' ' + ln + '<br>' + addr + ', ' + city + ', ' + prov +
+    fn + ' ' + ln + '<br>' + addrLine +
     '<br>Payment via: <span style="color:var(--gold);text-transform:capitalize;">' + selectedPay + '</span>';
 }
 
